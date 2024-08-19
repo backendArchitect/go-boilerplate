@@ -1,0 +1,17 @@
+.idea/
+fiber-app.iml
+main
+/tmp
+/node_modules/
+*.fiber.gz
+.env
+.DS_Store
+dump.rdb
+uploads
+/storage/
+build/
+awstats-icon
+awstatsicons
+icon/
+stats/
+vendor/
