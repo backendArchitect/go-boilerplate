@@ -1,0 +1,20 @@
+{
+  "version": "2",
+  "sql":
+    [
+      {
+        "schema": "database/migrations",
+        "queries": "database/queries",
+        "engine": "postgresql",
+        "gen":
+          {
+            "go":
+              {
+                "out": "models",
+                "package": "models",
+                "emit_json_tags": true,
+              },
+          },
+      },
+    ],
+}
