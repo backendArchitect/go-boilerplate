@@ -3,6 +3,7 @@ package cli
 import (
 	"database/sql"
 	"fmt"
+	"log"
 
 	"github.com/codeArtisanry/go-boilerplate/config"
 	"github.com/codeArtisanry/go-boilerplate/database"
@@ -30,6 +31,10 @@ func GetMigrationCommandDef(cfg config.AppConfig) cobra.Command {
 			switch cfg.DB.Dialect {
 			case database.POSTGRES:
 				return runPostgresMigration(cfg, "UP")
+			case database.MYSQL:
+				return runMySQLMigration(cfg, "UP")
+			case database.SQLITE3:
+				return runSQLite3Migration(cfg, "UP")
 			}
 			return nil
 		},
@@ -42,15 +47,29 @@ func GetMigrationCommandDef(cfg config.AppConfig) cobra.Command {
 		Args:  cobra.MinimumNArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Run test db migration
+			createTestingDBMigration(cfg, "DOWN")
 			switch cfg.DB.Dialect {
 			case database.POSTGRES:
 				return runPostgresMigration(cfg, "DOWN")
+			case database.MYSQL:
+				return runMySQLMigration(cfg, "DOWN")
+			case database.SQLITE3:
+				return runSQLite3Migration(cfg, "DOWN")
 			}
 			return nil
 		},
 	}
 	migrateCmd.AddCommand(&migrateUp, &migrateDown)
 	return migrateCmd
+}
+
+func createTestingDBMigration(cfg config.AppConfig, migrationType string) {
+	if cfg.Env == "local" || cfg.Env == "testing" {
+		err := runSQLite3Migration(cfg, migrationType) // run sqlite3 migration
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
 func runPostgresMigration(cfg config.AppConfig, migrationType string) error {
@@ -70,6 +89,56 @@ func runPostgresMigration(cfg config.AppConfig, migrationType string) error {
 		}
 	} else {
 		_, err = migrate.Exec(db, database.POSTGRES, migrations, migrate.Down)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func runMySQLMigration(cfg config.AppConfig, migrationType string) error {
+	migrations := migrate.FileMigrationSource{
+		Dir: cfg.DB.MigrationDir,
+	}
+
+	db, err := sql.Open(database.MYSQL, fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", cfg.DB.Username, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Db, cfg.DB.QueryString))
+	if err != nil {
+		return err
+	}
+
+	if migrationType == "UP" {
+		_, err = migrate.Exec(db, database.MYSQL, migrations, migrate.Up)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err = migrate.Exec(db, database.MYSQL, migrations, migrate.Down)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func runSQLite3Migration(cfg config.AppConfig, migrationType string) error {
+	migrations := migrate.FileMigrationSource{
+		Dir: cfg.DB.MigrationDir,
+	}
+
+	db, err := sql.Open(database.SQLITE3, cfg.DB.SQLiteFilePath)
+	if err != nil {
+		return err
+	}
+
+	if migrationType == "UP" {
+		_, err = migrate.Exec(db, database.SQLITE3, migrations, migrate.Up)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err = migrate.Exec(db, database.SQLITE3, migrations, migrate.Down)
 		if err != nil {
 			return err
 		}
