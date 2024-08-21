@@ -48,5 +48,11 @@ func setupUserController(router fiber.Router, db *sql.DB, logger *zap.Logger, co
 	}
 
 	router.Post("/users", userController.Create)
+	router.Delete("/users/:id", userController.Delete)
+	router.Get("/users", userController.GetUsers)
+	router.Get("/users/:id", userController.GetUserByIdOrEmail)
+	router.Get("/users/email/:email", userController.GetUserByIdOrEmail)
+	router.Put("/users/:id", userController.UpdateUser)
+
 	return nil
 }
