@@ -24,6 +24,7 @@ type AppConfig struct {
 	GeoIP         *ip.GeoIpDB
 	Server        ServerConfig `yaml:"server"`
 	JWTSecret     string       `envconfig:"JWT_SECRET"`
+	AppName			 string       `envconfig:"APP_NAME"`
 }
 
 // GetConfig Collects all configs

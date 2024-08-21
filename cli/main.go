@@ -10,8 +10,9 @@ import (
 func Init(cfg config.AppConfig, logger *zap.Logger) error {
 	migrationCmd := GetMigrationCommandDef(cfg)
 	APICmd := GetAPICommandDef(cfg, logger)
+	buildCmd := build(cfg, logger)
 	// use is stands for a binary after build a golang app
 	rootCmd := &cobra.Command{Use: "go-boilerplate"}
-	rootCmd.AddCommand(&migrationCmd, &APICmd)
+	rootCmd.AddCommand(&migrationCmd, &APICmd, buildCmd)
 	return rootCmd.Execute()
 }
