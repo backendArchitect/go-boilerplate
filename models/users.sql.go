@@ -10,17 +10,23 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id, name, email, password, created_at, updated_at
+INSERT INTO users (id, name, email, password) VALUES ($1, $2, $3, $4) RETURNING id, name, email, password, created_at, updated_at
 `
 
 type CreateUserParams struct {
+	ID       int32  `json:"id"`
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser, arg.Name, arg.Email, arg.Password)
+	row := q.db.QueryRowContext(ctx, createUser,
+		arg.ID,
+		arg.Name,
+		arg.Email,
+		arg.Password,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
@@ -49,6 +55,17 @@ func (q *Queries) DeleteUser(ctx context.Context, id int32) (User, error) {
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getLastId = `-- name: GetLastId :one
+SELECT id FROM users ORDER BY id DESC LIMIT 1
+`
+
+func (q *Queries) GetLastId(ctx context.Context) (int32, error) {
+	row := q.db.QueryRowContext(ctx, getLastId)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
