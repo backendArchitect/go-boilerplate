@@ -15,7 +15,6 @@ import (
 
 var mu sync.Mutex
 
-// Setup func
 func Setup(app *fiber.App, db *sql.DB, logger *zap.Logger, config config.AppConfig) error {
 	mu.Lock()
 
@@ -30,7 +29,7 @@ func Setup(app *fiber.App, db *sql.DB, logger *zap.Logger, config config.AppConf
 	router := app.Group("/api")
 	v1 := router.Group("/v1")
 
-	middlewares := middlewares.NewMiddleware(config, logger)
+	middlewares := middlewares.JWTMiddleware(config, logger)
 
 	err := setupUserController(v1, db, logger, config, middlewares)
 	if err != nil {
@@ -41,18 +40,23 @@ func Setup(app *fiber.App, db *sql.DB, logger *zap.Logger, config config.AppConf
 	return nil
 }
 
-func setupUserController(router fiber.Router, db *sql.DB, logger *zap.Logger, config config.AppConfig, middlewares middlewares.Middleware) error {
+func setupUserController(router fiber.Router, db *sql.DB, logger *zap.Logger, config config.AppConfig, middlewares fiber.Handler) error {
 	userController, err := controller.NewUserController(db, logger, config)
 	if err != nil {
 		return err
 	}
 
-	router.Post("/users", userController.Create)
-	router.Delete("/users/:id", userController.Delete)
-	router.Get("/users", userController.GetUsers)
-	router.Get("/users/:id", userController.GetUserByIdOrEmail)
-	router.Get("/users/email/:email", userController.GetUserByIdOrEmail)
-	router.Put("/users/:id", userController.UpdateUser)
+	// Public routes
+	router.Post("/users/register", userController.Register)
+	router.Post("/users/login", userController.Login)
+
+	// Protected routes
+	protected := router.Group("", middlewares)
+	protected.Delete("/users/:id", userController.Delete)
+	protected.Get("/users", userController.GetUsers)
+	protected.Get("/users/:id", userController.GetUserByIdOrEmail)
+	protected.Get("/users/email/:email", userController.GetUserByIdOrEmail)
+	protected.Put("/users/:id", userController.UpdateUser)
 
 	return nil
 }
