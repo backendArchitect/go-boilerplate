@@ -16,6 +16,11 @@ import (
 var mu sync.Mutex
 
 func Setup(app *fiber.App, db *sql.DB, logger *zap.Logger, config config.AppConfig) error {
+	userController, err := controller.NewUserController(db, logger, config)
+	if err != nil {
+		return err
+	}
+
 	mu.Lock()
 
 	app.Use(middlewares.LogHandler(logger))
@@ -31,25 +36,19 @@ func Setup(app *fiber.App, db *sql.DB, logger *zap.Logger, config config.AppConf
 
 	middlewares := middlewares.JWTMiddleware(config, logger)
 
-	err := setupUserController(v1, db, logger, config, middlewares)
+	err = setupUserController(v1, middlewares, userController)
 	if err != nil {
 		return err
 	}
+	// Public routes
+	router.Post("/users/register", userController.Register)
+	router.Post("/users/login", userController.Login)
 
 	mu.Unlock()
 	return nil
 }
 
-func setupUserController(router fiber.Router, db *sql.DB, logger *zap.Logger, config config.AppConfig, middlewares fiber.Handler) error {
-	userController, err := controller.NewUserController(db, logger, config)
-	if err != nil {
-		return err
-	}
-
-	// Public routes
-	router.Post("/users/register", userController.Register)
-	router.Post("/users/login", userController.Login)
-
+func setupUserController(router fiber.Router, middlewares fiber.Handler, userController *controller.UserController) error {
 	// Protected routes
 	protected := router.Group("", middlewares)
 	protected.Delete("/users/:id", userController.Delete)
