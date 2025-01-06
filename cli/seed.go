@@ -57,7 +57,7 @@ func seed(cfg config.AppConfig, logger *zap.Logger) *cobra.Command {
 					logger.Error("Failed to insert user", zap.String("email", user.Email), zap.Error(err))
 					return fmt.Errorf("failed to seed user: %w", err)
 				}
-				logger.Info("Inserted user", zap.String("email", user.Email))
+				logger.Info("Inserted user", zap.String("email", user.Email), zap.String("password", user.Password))
 			}
 
 			logger.Info("Database seeding completed successfully")

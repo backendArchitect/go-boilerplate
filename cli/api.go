@@ -12,6 +12,7 @@ import (
 	"github.com/codeArtisanry/go-boilerplate/database"
 	"github.com/codeArtisanry/go-boilerplate/routes"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +27,13 @@ func GetAPICommandDef(cfg config.AppConfig, logger *zap.Logger) cobra.Command {
 			// Create fiber app
 			app := fiber.New(fiber.Config{})
 
-			db, err := database.Connect(cfg.DB)
+			// seup cors
+			app.Use(cors.New(cors.Config{
+				AllowOrigins: "*",
+				AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
+			}))
+
+			db, err := database.DBConn{}.Database.Connect(cfg.DB)
 			if err != nil {
 				return err
 			}
@@ -41,7 +48,7 @@ func GetAPICommandDef(cfg config.AppConfig, logger *zap.Logger) cobra.Command {
 			interrupt := make(chan os.Signal, 1)
 			signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 			go func() {
-				if err := app.Listen(cfg.Port); err != nil {
+				if err := app.Listen("0.0.0.0:8080"); err != nil {
 					logger.Panic(err.Error())
 				}
 			}()
