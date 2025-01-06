@@ -20,7 +20,7 @@ type AppConfig struct {
 	Env           string `envconfig:"APP_ENV"`
 	Port          string `envconfig:"APP_PORT"`
 	Secret        string `envconfig:"JWT_SECRET"`
-	DB            DBConfig
+	DB            *DBConfig
 	GeoIP         *ip.GeoIpDB
 	Server        ServerConfig `yaml:"server"`
 	JWTSecret     string       `envconfig:"JWT_SECRET"`

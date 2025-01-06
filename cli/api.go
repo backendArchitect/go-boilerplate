@@ -33,11 +33,20 @@ func GetAPICommandDef(cfg config.AppConfig, logger *zap.Logger) cobra.Command {
 				AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 			}))
 
-			db, err := database.DBConn{}.Database.Connect(cfg.DB)
-			if err != nil {
-				return err
+			dbConn := &database.DBConn{
+				DatabaseConn: &database.SQLite3{}, // Replace with your database type
 			}
-			defer db.Close()
+
+			db, err := dbConn.DatabaseConn.Connect(*cfg.DB)
+			if err != nil {
+				logger.Panic("database connection failed", zap.Error(err))
+			}
+			defer func() {
+				if err := db.Close(); err != nil {
+					logger.Error("error closing database", zap.Error(err))
+				}
+			}()
+			logger.Info("database connection established")
 
 			// setup routes
 			err = routes.Setup(app, db, logger, cfg)

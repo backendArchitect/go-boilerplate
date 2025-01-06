@@ -14,6 +14,7 @@ import (
 
 var dbURL string
 var err error
+var DB *sql.DB
 
 const (
 	POSTGRES = "postgres"
@@ -29,7 +30,13 @@ type Database interface {
 }
 
 type DBConn struct {
-	Database Database
+	DatabaseConn Database
+}
+
+func NewDBConn(databaseConn DBConn) *DBConn {
+	return &DBConn{
+		DatabaseConn: databaseConn.DatabaseConn,
+	}
 }
 
 // Postgres implicitly implements Database
