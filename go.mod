@@ -1,4 +1,4 @@
-module github.com/codeArtisanry/go-boilerplate
+module github.com/backendArchitech/go-boilerplate
 
 go 1.21.1
 
