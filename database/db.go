@@ -5,7 +5,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/codeArtisanry/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/config"
 	_ "github.com/doug-martin/goqu/v9/dialect/mysql" // import mysql if it is used
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
 	_ "github.com/doug-martin/goqu/v9/dialect/sqlite3"

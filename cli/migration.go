@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/codeArtisanry/go-boilerplate/config"
-	"github.com/codeArtisanry/go-boilerplate/database"
+	"github.com/backendArchitech/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/database"
 	_ "github.com/lib/pq" // for postgres dialect
 	migrate "github.com/rubenv/sql-migrate"
 	"github.com/spf13/cobra"

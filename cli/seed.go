@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/codeArtisanry/go-boilerplate/config"
-	"github.com/codeArtisanry/go-boilerplate/database"
+	"github.com/backendArchitech/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/database"
 	"github.com/icrowley/fake"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"

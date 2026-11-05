@@ -3,7 +3,7 @@ package middlewares
 import (
 	"strings"
 
-	"github.com/codeArtisanry/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/config"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v4"
 	"go.uber.org/zap"

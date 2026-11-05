@@ -8,9 +8,9 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/codeArtisanry/go-boilerplate/config"
-	"github.com/codeArtisanry/go-boilerplate/database"
-	"github.com/codeArtisanry/go-boilerplate/routes"
+	"github.com/backendArchitech/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/database"
+	"github.com/backendArchitech/go-boilerplate/routes"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/spf13/cobra"

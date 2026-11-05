@@ -15,9 +15,9 @@
 package main
 
 import (
-	"github.com/codeArtisanry/go-boilerplate/cli"
-	"github.com/codeArtisanry/go-boilerplate/config"
-	"github.com/codeArtisanry/go-boilerplate/logger"
+	"github.com/backendArchitech/go-boilerplate/cli"
+	"github.com/backendArchitech/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/logger"
 	"go.uber.org/zap"
 )
 

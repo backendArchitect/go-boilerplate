@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/codeArtisanry/go-boilerplate/config"
-	"github.com/codeArtisanry/go-boilerplate/models"
+	"github.com/backendArchitech/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/models"
 	"go.uber.org/zap"
 
 	"github.com/gofiber/fiber/v2"

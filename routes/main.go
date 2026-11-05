@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"sync"
 
-	"github.com/codeArtisanry/go-boilerplate/config"
-	controller "github.com/codeArtisanry/go-boilerplate/controllers/api/v1"
+	"github.com/backendArchitech/go-boilerplate/config"
+	controller "github.com/backendArchitech/go-boilerplate/controllers/api/v1"
 	"go.uber.org/zap"
 
-	"github.com/codeArtisanry/go-boilerplate/middlewares"
+	"github.com/backendArchitech/go-boilerplate/middlewares"
 	"github.com/gofiber/fiber/v2"
 )
 

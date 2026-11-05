@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/codeArtisanry/go-boilerplate/config"
+	"github.com/backendArchitech/go-boilerplate/config"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
