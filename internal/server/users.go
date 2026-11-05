@@ -1,79 +1,79 @@
 package server
 
 import (
+	"context"
 	"math"
-	"net/http"
-	"strconv"
 
+	"github.com/backendArchitect/go-boilerplate/internal/api"
 	"github.com/backendArchitect/go-boilerplate/internal/db"
 )
 
-func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) error {
-	limit, err := queryInt(r, "limit", 20, 100)
-	if err != nil {
-		return err
-	}
-	offset, err := queryInt(r, "offset", 0, math.MaxInt32)
-	if err != nil {
-		return err
-	}
-	users, err := s.q.ListUsers(r.Context(), db.ListUsersParams{Limit: int32(limit), Offset: int32(offset)}) //nolint:gosec // bounded by queryInt
-	if err != nil {
-		return err
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"users": users})
-	return nil
+// toUser converts a database row to its API shape. Keeping the two separate
+// means columns like password_hash can never leak into a response.
+func toUser(u db.User) api.User {
+	return api.User{ID: u.ID, Name: u.Name, Email: u.Email, CreatedAt: u.CreatedAt, UpdatedAt: u.UpdatedAt}
 }
 
-func (s *Server) getUser(w http.ResponseWriter, r *http.Request) error {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		return errorf(http.StatusBadRequest, "invalid user id")
+func (s *Server) ListUsers(ctx context.Context, req api.ListUsersRequestObject) (api.ListUsersResponseObject, error) {
+	limit, offset := 20, 0
+	if p := req.Params.Limit; p != nil {
+		limit = *p
 	}
-	user, err := s.q.GetUser(r.Context(), id)
-	if err != nil {
-		return err
+	if p := req.Params.Offset; p != nil {
+		offset = *p
 	}
-	writeJSON(w, http.StatusOK, user)
-	return nil
+	if limit < 0 || limit > 100 || offset < 0 || offset > math.MaxInt32 {
+		return nil, errorf(api.ErrorCodeInvalidRequest, "limit must be 0 to 100 and offset 0 or more")
+	}
+	rows, err := s.q.ListUsers(ctx, db.ListUsersParams{Limit: int32(limit), Offset: int32(offset)}) //nolint:gosec // bounds checked above
+	if err != nil {
+		return nil, err
+	}
+	users := make([]api.User, len(rows))
+	for i, u := range rows {
+		users[i] = toUser(u)
+	}
+	return api.ListUsers200JSONResponse{Users: users}, nil
 }
 
-func (s *Server) getMe(w http.ResponseWriter, r *http.Request) error {
-	user, err := s.q.GetUser(r.Context(), userID(r))
+func (s *Server) GetUser(ctx context.Context, req api.GetUserRequestObject) (api.GetUserResponseObject, error) {
+	user, err := s.q.GetUser(ctx, req.ID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	writeJSON(w, http.StatusOK, user)
-	return nil
+	return api.GetUser200JSONResponse(toUser(user)), nil
 }
 
-func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) error {
-	var req profile
-	if err := decodeJSON(w, r, &req); err != nil {
-		return err
+func (s *Server) GetMe(ctx context.Context, _ api.GetMeRequestObject) (api.GetMeResponseObject, error) {
+	user, err := s.q.GetUser(ctx, userID(ctx))
+	if err != nil {
+		return nil, err
 	}
-	if err := req.normalize(); err != nil {
-		return err
+	return api.GetMe200JSONResponse(toUser(user)), nil
+}
+
+func (s *Server) UpdateMe(ctx context.Context, req api.UpdateMeRequestObject) (api.UpdateMeResponseObject, error) {
+	name, email, err := normalizeProfile(req.Body.Name, req.Body.Email)
+	if err != nil {
+		return nil, err
 	}
-	user, err := s.q.UpdateUser(r.Context(), db.UpdateUserParams{ID: userID(r), Name: req.Name, Email: req.Email})
+	user, err := s.q.UpdateUser(ctx, db.UpdateUserParams{ID: userID(ctx), Name: name, Email: email})
 	if db.IsUniqueViolation(err) {
-		return errorf(http.StatusConflict, "email is already registered")
+		return nil, errEmailTaken
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	writeJSON(w, http.StatusOK, user)
-	return nil
+	return api.UpdateMe200JSONResponse(toUser(user)), nil
 }
 
-func (s *Server) deleteMe(w http.ResponseWriter, r *http.Request) error {
-	n, err := s.q.DeleteUser(r.Context(), userID(r))
+func (s *Server) DeleteMe(ctx context.Context, _ api.DeleteMeRequestObject) (api.DeleteMeResponseObject, error) {
+	n, err := s.q.DeleteUser(ctx, userID(ctx))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if n == 0 {
-		return errorf(http.StatusNotFound, "not found")
+		return nil, errorf(api.ErrorCodeNotFound, "not found")
 	}
-	w.WriteHeader(http.StatusNoContent)
-	return nil
+	return api.DeleteMe204Response{}, nil
 }

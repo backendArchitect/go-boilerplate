@@ -1,16 +1,22 @@
 # Dev tools run at pinned versions via `go run`, so there is nothing to install
 # and go.mod stays free of tool dependencies. sqlc needs a C compiler (cgo).
 SQLC = go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+OAPI = go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 AIR  = go run github.com/air-verse/air@v1.67.4
 LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 
 TEST_DATABASE_URL ?= postgres://app:app@localhost:5432/app_test?sslmode=disable
 
 .DEFAULT_GOAL := help
-.PHONY: help db run dev build test lint generate migrate migration seed docker
+.PHONY: help check db run dev build test lint generate migrate migration seed docker
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+check: db generate ## Run before committing: generate, tidy, lint, test (CI runs exactly this)
+	go mod tidy
+	$(LINT) run
+	@$(MAKE) --no-print-directory test
 
 db: ## Start Postgres in Docker
 	docker compose up -d --wait db
@@ -30,8 +36,9 @@ test: ## Run tests (integration tests need `make db`)
 lint: ## Run golangci-lint
 	$(LINT) run
 
-generate: ## Regenerate Go code from SQL (sqlc)
+generate: ## Regenerate Go code from SQL (sqlc) and openapi.yaml (oapi-codegen)
 	$(SQLC) generate
+	$(OAPI) -config oapi-codegen.yaml internal/api/openapi.yaml
 
 migrate: ## Apply pending migrations
 	go run . migrate up

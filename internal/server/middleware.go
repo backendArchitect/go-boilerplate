@@ -8,6 +8,8 @@ import (
 	"runtime/debug"
 	"slices"
 	"time"
+
+	"github.com/backendArchitect/go-boilerplate/internal/api"
 )
 
 type requestIDKey struct{}
@@ -64,9 +66,17 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 					panic(v)
 				}
 				s.log.ErrorContext(r.Context(), "panic", "err", v, "stack", string(debug.Stack()), "request_id", requestID(r.Context()))
-				writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal server error"})
+				s.writeError(w, r, errorf(api.ErrorCodeInternalError, "internal server error"))
 			}
 		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// limitBody caps request bodies at 1 MB so a huge upload can't exhaust memory.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		next.ServeHTTP(w, r)
 	})
 }

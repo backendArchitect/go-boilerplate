@@ -14,60 +14,54 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/backendArchitect/go-boilerplate/internal/api"
 	"github.com/backendArchitect/go-boilerplate/internal/db"
 )
 
-// profile is the user-editable part of a user, shared by register and update.
-type profile struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
+var (
+	errEmailTaken         = errorf(api.ErrorCodeEmailTaken, "email is already registered")
+	errInvalidCredentials = errorf(api.ErrorCodeInvalidCredentials, "invalid email or password")
+)
+
+// normalizeProfile trims the name and lowercases the email, then validates both.
+func normalizeProfile(name, email string) (string, string, error) {
+	name = strings.TrimSpace(name)
+	email = strings.ToLower(strings.TrimSpace(email))
+	if name == "" {
+		return "", "", errorf(api.ErrorCodeValidationFailed, "name is required")
+	}
+	if a, err := mail.ParseAddress(email); err != nil || a.Address != email {
+		return "", "", errorf(api.ErrorCodeValidationFailed, "a valid email is required")
+	}
+	return name, email, nil
 }
 
-func (p *profile) normalize() error {
-	p.Name = strings.TrimSpace(p.Name)
-	p.Email = strings.ToLower(strings.TrimSpace(p.Email))
-	if p.Name == "" {
-		return errorf(http.StatusUnprocessableEntity, "name is required")
-	}
-	if a, err := mail.ParseAddress(p.Email); err != nil || a.Address != p.Email {
-		return errorf(http.StatusUnprocessableEntity, "a valid email is required")
-	}
-	return nil
-}
-
-type authResponse struct {
-	Token string  `json:"token"`
-	User  db.User `json:"user"`
-}
-
-func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
-	var req struct {
-		profile
-		Password string `json:"password"`
-	}
-	if err := decodeJSON(w, r, &req); err != nil {
-		return err
-	}
-	if err := req.normalize(); err != nil {
-		return err
+func (s *Server) Register(ctx context.Context, req api.RegisterRequestObject) (api.RegisterResponseObject, error) {
+	name, email, err := normalizeProfile(req.Body.Name, req.Body.Email)
+	if err != nil {
+		return nil, err
 	}
 	// bcrypt only uses the first 72 bytes, so longer passwords are rejected.
-	if n := len(req.Password); n < 8 || n > 72 {
-		return errorf(http.StatusUnprocessableEntity, "password must be 8 to 72 bytes")
+	if n := len(req.Body.Password); n < 8 || n > 72 {
+		return nil, errorf(api.ErrorCodeValidationFailed, "password must be 8 to 72 bytes")
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Body.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	user, err := s.q.CreateUser(r.Context(), db.CreateUserParams{Name: req.Name, Email: req.Email, PasswordHash: string(hash)})
+	user, err := s.q.CreateUser(ctx, db.CreateUserParams{Name: name, Email: email, PasswordHash: string(hash)})
 	if db.IsUniqueViolation(err) {
-		return errorf(http.StatusConflict, "email is already registered")
+		return nil, errEmailTaken
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return s.respondWithToken(w, http.StatusCreated, user)
+	res, err := s.authResponse(user)
+	if err != nil {
+		return nil, err
+	}
+	return api.Register201JSONResponse(res), nil
 }
 
 // dummyHash is compared against when the email is unknown, so a login
@@ -77,68 +71,77 @@ var dummyHash = sync.OnceValue(func() []byte {
 	return h
 })
 
-func (s *Server) login(w http.ResponseWriter, r *http.Request) error {
-	var req struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	if err := decodeJSON(w, r, &req); err != nil {
-		return err
-	}
-
-	user, err := s.q.GetUserByEmail(r.Context(), strings.ToLower(strings.TrimSpace(req.Email)))
+func (s *Server) Login(ctx context.Context, req api.LoginRequestObject) (api.LoginResponseObject, error) {
+	user, err := s.q.GetUserByEmail(ctx, strings.ToLower(strings.TrimSpace(req.Body.Email)))
 	if errors.Is(err, pgx.ErrNoRows) {
-		_ = bcrypt.CompareHashAndPassword(dummyHash(), []byte(req.Password))
-		return errorf(http.StatusUnauthorized, "invalid email or password")
+		_ = bcrypt.CompareHashAndPassword(dummyHash(), []byte(req.Body.Password))
+		return nil, errInvalidCredentials
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
-		return errorf(http.StatusUnauthorized, "invalid email or password")
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Body.Password)) != nil {
+		return nil, errInvalidCredentials
 	}
-	return s.respondWithToken(w, http.StatusOK, user)
+	res, err := s.authResponse(user)
+	if err != nil {
+		return nil, err
+	}
+	return api.Login200JSONResponse(res), nil
 }
 
-func (s *Server) respondWithToken(w http.ResponseWriter, status int, user db.User) error {
+func (s *Server) authResponse(user db.User) (api.AuthResponse, error) {
+	token, err := s.issueToken(user.ID)
+	return api.AuthResponse{Token: token, User: toUser(user)}, err
+}
+
+func (s *Server) issueToken(userID int64) (string, error) {
 	now := time.Now()
-	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Subject:   strconv.FormatInt(user.ID, 10),
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
+		Subject:   strconv.FormatInt(userID, 10),
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(now.Add(s.cfg.JWTTTL)),
 	}).SignedString([]byte(s.cfg.JWTSecret))
+}
+
+func (s *Server) parseToken(raw string) (int64, error) {
+	var claims jwt.RegisteredClaims
+	_, err := jwt.ParseWithClaims(raw, &claims,
+		func(*jwt.Token) (any, error) { return []byte(s.cfg.JWTSecret), nil },
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+		jwt.WithExpirationRequired(),
+	)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	writeJSON(w, status, authResponse{Token: token, User: user})
-	return nil
+	return strconv.ParseInt(claims.Subject, 10, 64)
 }
 
 type userIDKey struct{}
 
-// userID returns the authenticated user's ID. Only valid behind requireAuth.
-func userID(r *http.Request) int64 { return r.Context().Value(userIDKey{}).(int64) }
+// userID returns the authenticated user's ID. Only valid in operations that
+// require bearerAuth in openapi.yaml.
+func userID(ctx context.Context) int64 { return ctx.Value(userIDKey{}).(int64) }
 
-// requireAuth rejects requests without a valid "Authorization: Bearer <jwt>".
-func (s *Server) requireAuth(h func(http.ResponseWriter, *http.Request) error) http.Handler {
-	return s.handle(func(w http.ResponseWriter, r *http.Request) error {
+// authenticate requires "Authorization: Bearer <jwt>" on operations that
+// openapi.yaml secures with bearerAuth; the generated router marks those with
+// api.BearerAuthScopes. Operations with `security: []` pass straight through.
+func (s *Server) authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Context().Value(api.BearerAuthScopes) == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
 		raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 		if !ok {
-			return errorf(http.StatusUnauthorized, "missing bearer token")
+			s.writeError(w, r, errorf(api.ErrorCodeUnauthorized, "missing bearer token"))
+			return
 		}
-		var claims jwt.RegisteredClaims
-		_, err := jwt.ParseWithClaims(raw, &claims,
-			func(*jwt.Token) (any, error) { return []byte(s.cfg.JWTSecret), nil },
-			jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
-			jwt.WithExpirationRequired(),
-		)
+		id, err := s.parseToken(raw)
 		if err != nil {
-			return errorf(http.StatusUnauthorized, "invalid or expired token")
+			s.writeError(w, r, errorf(api.ErrorCodeUnauthorized, "invalid or expired token"))
+			return
 		}
-		id, err := strconv.ParseInt(claims.Subject, 10, 64)
-		if err != nil {
-			return errorf(http.StatusUnauthorized, "invalid or expired token")
-		}
-		return h(w, r.WithContext(context.WithValue(r.Context(), userIDKey{}, id)))
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userIDKey{}, id)))
 	})
 }
