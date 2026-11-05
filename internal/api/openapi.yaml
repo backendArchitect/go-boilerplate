@@ -1,0 +1,239 @@
+openapi: 3.0.3
+info:
+  title: go-boilerplate API
+  version: 1.0.0
+  description: |
+    Errors always have the shape `{"error": "...", "code": "..."}`. Branch on
+    `code`, which is stable; `error` is a human-readable message that may change.
+
+    Requests are rate limited per client IP, with a stricter limit on `/auth/*`.
+    Over the limit you get `429` with a `Retry-After` header (seconds).
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create an account
+      description: Returns a token, so no separate login is needed.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Exchange email and password for a token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List users, oldest first
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 100, default: 20 }
+        - name: offset
+          in: query
+          schema: { type: integer, minimum: 0, maximum: 2147483647, default: 0 }
+      responses:
+        "200":
+          description: A page of users
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserList" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get the authenticated user
+      responses:
+        "200":
+          description: The authenticated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      operationId: updateMe
+      tags: [users]
+      summary: Update the authenticated user's name and email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Profile" }
+      responses:
+        "200":
+          description: The updated user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+    delete:
+      operationId: deleteMe
+      tags: [users]
+      summary: Delete the authenticated user's account
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get a user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Error:
+      description: Error; see `code` for the reason
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error, code]
+      properties:
+        error:
+          type: string
+          description: Human-readable message. May change; don't parse it.
+        code: { $ref: "#/components/schemas/ErrorCode" }
+
+    ErrorCode:
+      type: string
+      description: |
+        Stable, machine-readable reason. Each code always uses the same status:
+        invalid_request 400, validation_failed 422, unauthorized 401,
+        invalid_credentials 401, not_found 404, email_taken 409,
+        rate_limited 429, unavailable 503, internal_error 500.
+      enum:
+        - invalid_request
+        - validation_failed
+        - unauthorized
+        - invalid_credentials
+        - not_found
+        - email_taken
+        - rate_limited
+        - unavailable
+        - internal_error
+
+    User:
+      type: object
+      required: [id, name, email, created_at, updated_at]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        email: { type: string, format: email }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UserList:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          items: { $ref: "#/components/schemas/User" }
+
+    Profile:
+      type: object
+      required: [name, email]
+      properties:
+        name: { type: string, minLength: 1 }
+        email:
+          type: string
+          format: email
+          description: Stored lowercased; must be unique.
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          description: 8 to 72 bytes (bcrypt's limit).
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+          description: "JWT; send as `Authorization: Bearer <token>`."
+        user: { $ref: "#/components/schemas/User" }

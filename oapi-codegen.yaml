@@ -1,0 +1,19 @@
+# Generates internal/api/api.gen.go from internal/api/openapi.yaml (make generate).
+package: api
+output: internal/api/api.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+compatibility:
+  always-prefix-enum-values: true
+  # Puts BearerAuthScopes on the context of operations that require a token;
+  # the authenticate middleware keys off it, so the spec decides what is public.
+  enable-auth-scopes-on-context: true
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms
+  # Keep emails plain strings; the handlers validate and normalize them.
+  type-mapping:
+    string:
+      formats:
+        email: { type: string }
