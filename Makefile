@@ -5,7 +5,7 @@ OAPI = go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0
 AIR  = go run github.com/air-verse/air@v1.67.4
 LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 # Same version and gate as the gospect job in .github/workflows/ci.yml; bump both together.
-SCAN = go run github.com/backendArchitect/gospect-mcp@v1.1.35 check -quiet -fail-on high . ./...
+SCAN = go run github.com/backendArchitect/gospect-mcp@v1.1.38 check -quiet -fail-on high . ./...
 
 TEST_DATABASE_URL ?= postgres://app:app@localhost:5432/app_test?sslmode=disable
 
