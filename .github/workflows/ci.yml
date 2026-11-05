@@ -27,23 +27,20 @@ jobs:
             exit 1
           fi
 
-  # gospect bug scan: fails on high-severity findings and uploads every finding
-  # as SARIF, so they show up as annotations on the PR diff and in the Security
-  # tab. Same version and gate as `make scan`; bump both together.
+  # gospect bug scan: fails on high-severity findings. Same version and gate as
+  # `make scan`; bump both together.
   gospect:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write # SARIF upload
     steps:
       - uses: actions/checkout@v7
       - uses: backendArchitect/gospect-mcp@v1.1.35
         with:
           version: v1.1.35
           fail-on: high
-          # PRs from forks get a read-only token, so skip the upload there
-          # (the gate still runs).
-          sarif: ${{ !github.event.pull_request.head.repo.fork }}
+          # SARIF annotations are off: v1.1.35 writes "results": null when there
+          # are no findings, which GitHub's upload rejects. Once fixed, add
+          # `sarif: ${{ !github.event.pull_request.head.repo.fork }}` and grant
+          # this job `security-events: write`.
 
   docker:
     runs-on: ubuntu-latest

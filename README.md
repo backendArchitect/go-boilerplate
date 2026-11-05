@@ -12,6 +12,7 @@ A small, production-ready starting point for a Go JSON API. It uses the standard
 | Auth         | bcrypt password hashes + JWT (HS256)                                            |
 | Logging      | `log/slog`: JSON in production, text in development                             |
 | Tooling      | `make check`, live reload (air), golangci-lint, GitHub Actions, Dependabot      |
+| Bug scan     | [gospect-mcp](https://github.com/backendArchitect/gospect-mcp) gate in `make check` and CI |
 | Agents       | [AGENTS.md](AGENTS.md) house rules (and `CLAUDE.md`, which imports it)          |
 | Deploy       | Multi-stage Dockerfile → ~25 MB distroless non-root image                       |
 
@@ -64,13 +65,14 @@ Every error looks like `{"error": "email is already registered", "code": "email_
 The binary has three subcommands: `api`, `migrate [up|down|status|redo|reset|version]` and `seed [count]`. Run `make` to list the Makefile targets:
 
 ```
-check      Run before committing: generate, tidy, lint, test (CI runs exactly this)
+check      Run before committing: generate, tidy, lint, scan, test (CI runs exactly this)
 db         Start Postgres in Docker
 run        Run the API
 dev        Run the API with live reload
 build      Build the binary into bin/app
 test       Run tests (integration tests need `make db`)
 lint       Run golangci-lint
+scan       Scan for bugs with gospect (fails on high severity)
 generate   Regenerate Go code from SQL (sqlc) and openapi.yaml (oapi-codegen)
 migrate    Apply pending migrations
 migration  Create a migration: make migration name=add_posts
@@ -78,7 +80,7 @@ seed       Insert demo users
 docker     Build the Docker image
 ```
 
-The dev tools (sqlc, oapi-codegen, air, golangci-lint) run at pinned versions through `go run`, so you don't need to install them.
+The dev tools (sqlc, oapi-codegen, air, golangci-lint, gospect) run at pinned versions through `go run`, so you don't need to install them.
 
 ## Configuration
 

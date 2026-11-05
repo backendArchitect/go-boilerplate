@@ -4,7 +4,7 @@ A Go JSON API: `net/http`, PostgreSQL (pgx + sqlc), goose migrations, and an Ope
 
 ## Done means `make check` passes
 
-`make check` starts Postgres in Docker, regenerates code, runs `go mod tidy`, lints and runs the tests. CI runs the same command and fails if it changed any files, so commit everything it produces. Don't hand back work while it fails.
+`make check` starts Postgres in Docker, regenerates code, runs `go mod tidy`, lints, scans for bugs with gospect and runs the tests. CI runs the same command and fails if it changed any files, so commit everything it produces. Don't hand back work while it fails. If gospect reports a finding, fix the code; don't add an ignore.
 
 ## Generated code: edit the source, then run `make generate`
 
