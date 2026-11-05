@@ -42,7 +42,6 @@ func Load() (Config, error) {
 	}
 
 	var errs []error
-	var err error
 	count := func(key string, fallback int) int {
 		n, err := strconv.Atoi(getenv(key, strconv.Itoa(fallback)))
 		if err != nil || n < 0 {
@@ -52,6 +51,8 @@ func Load() (Config, error) {
 	}
 	cfg.RateLimitRPS = count("RATE_LIMIT_RPS", 20)
 	cfg.AuthRateLimitRPM = count("AUTH_RATE_LIMIT_RPM", 10)
+
+	var err error
 	if cfg.JWTTTL, err = time.ParseDuration(getenv("JWT_TTL", "24h")); err != nil {
 		errs = append(errs, fmt.Errorf("JWT_TTL: %w", err))
 	}
