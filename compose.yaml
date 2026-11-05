@@ -1,0 +1,45 @@
+# `docker compose up` runs the full stack. For local development run only the
+# database (`make db`) and the app with `make dev`.
+x-app: &app
+  build: .
+  environment:
+    DATABASE_URL: postgres://app:app@db:5432/app?sslmode=disable
+    JWT_SECRET: compose-only-secret-change-me-in-production
+    LOG_FORMAT: text
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql]
+    configs:
+      - source: create-test-db
+        target: /docker-entrypoint-initdb.d/create-test-db.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "app", "-d", "app"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  migrate:
+    <<: *app
+    command: ["migrate", "up"]
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    <<: *app
+    ports: ["8080:8080"]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+configs:
+  create-test-db:
+    content: CREATE DATABASE app_test;
+
+volumes:
+  pgdata:
